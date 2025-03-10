@@ -1,0 +1,10 @@
+../Core/Src/mpu6000.c:30:6:mpu6050Init	1
+../Core/Src/mpu6000.c:42:6:mpu6050powerOn	1
+../Core/Src/mpu6000.c:55:6:mpu6050Sampling	1
+../Core/Src/mpu6000.c:68:6:mpu6050GyroScale	1
+../Core/Src/mpu6000.c:81:6:mpu6050AccelScale	1
+../Core/Src/mpu6000.c:94:6:mpu6050Config	2
+../Core/Src/mpu6000.c:113:6:mpu6050GyroRead	1
+../Core/Src/mpu6000.c:134:6:mpu6050AccelRead	1
+../Core/Src/mpu6000.c:156:6:mpu6050Read_DMA	1
+../Core/Src/mpu6000.c:169:6:HAL_I2C_MemRxCpltCallback	2

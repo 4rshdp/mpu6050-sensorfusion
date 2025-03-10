@@ -22,6 +22,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usbd_cdc_if.h"
+#include <string.h>
+#include "mpu6000.h"
 
 /* USER CODE END Includes */
 
@@ -45,6 +48,9 @@ I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_rx;
 
 /* USER CODE BEGIN PV */
+
+// Declare a persistent buffer for USB transmission
+char usb_tx_buffer[150];  // Adjust size if necessary
 
 /* USER CODE END PV */
 
@@ -96,12 +102,34 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
+  mpu6050Config();
+  mpu6050Read_DMA();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+
   while (1)
   {
+
+	  // Format your accelerometer and gyro readings into a string
+	  snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
+			   "Ax=%.2f, Ay=%.2f, Az=%.2f, Gx=%.2f, Gy=%.2f, Gz=%.2f\r\n",
+			   Ax,
+			   Ay,
+			   Az,
+			   Gx,
+			   Gy,
+			   Gz);
+
+	  // Transmit via USB CDC
+	  CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
+
+	  HAL_Delay(20);
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
