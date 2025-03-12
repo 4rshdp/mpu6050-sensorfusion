@@ -24,7 +24,10 @@
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include <string.h>
+#include <math.h>
+
 #include "mpu6000.h"
+
 
 /* USER CODE END Includes */
 
@@ -35,7 +38,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SAMPLE_TIME_MS_USB  50
 
+#define RAD_TO_DEG 		57.2957795131f
+#define G_MPS2 9.8100000000f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -110,24 +116,38 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+  uint32_t timerUSB = 0;
+
+  float phiHat_deg = 0.0f;
+  float thetaHat_deg = 0.0f;
+
 
   while (1)
   {
+	  /* Log data via USB */
+	  if ((HAL_GetTick() - timerUSB) >= SAMPLE_TIME_MS_USB) {
 
-	  // Format your accelerometer and gyro readings into a string
-	  snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
-			   "Ax=%.2f, Ay=%.2f, Az=%.2f, Gx=%.2f, Gy=%.2f, Gz=%.2f\r\n",
-			   Ax,
-			   Ay,
-			   Az,
-			   Gx,
-			   Gy,
-			   Gz);
+		  phiHat_deg = atanf(Ay / Az) * RAD_TO_DEG;
+		  thetaHat_deg = asinf(Ax / G_MPS2) * RAD_TO_DEG;
 
-	  // Transmit via USB CDC
-	  CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
 
-	  HAL_Delay(20);
+		  /* Print via USB */
+
+		  snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
+				   "%.3f, %.3f\r\n",
+				   phiHat_deg,
+				   thetaHat_deg);
+
+
+		 // Transmit via USB CDC
+		 CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
+
+
+		  timerUSB = HAL_GetTick();
+
+	  }
+
+
 
 
     /* USER CODE END WHILE */

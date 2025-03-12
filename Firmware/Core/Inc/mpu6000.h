@@ -104,6 +104,18 @@ typedef enum{
 	g16 = 3
 }accelScale_t;
 
+typedef enum {
+    DLPF_CFG_260HZ = 0,  // Accelerometer: 260 Hz (Fs = 1kHz), Gyroscope: 256 Hz, Delay: ~0.98 ms
+    DLPF_CFG_184HZ = 1,  // Accelerometer: 184 Hz, Gyroscope: 188 Hz, Delay: ~2.0 ms
+    DLPF_CFG_94HZ  = 2,  // Accelerometer: 94 Hz,  Gyroscope: 98 Hz,  Delay: ~3.0 ms
+    DLPF_CFG_44HZ  = 3,  // Accelerometer: 44 Hz,  Gyroscope: 42 Hz,  Delay: ~4.9 ms
+    DLPF_CFG_21HZ  = 4,  // Accelerometer: 21 Hz,  Gyroscope: 20 Hz,  Delay: ~8.5 ms
+    DLPF_CFG_10HZ  = 5,  // Accelerometer: 10 Hz,  Gyroscope: 10 Hz,  Delay: ~13.8 ms
+    DLPF_CFG_5HZ   = 6,  // Accelerometer: 5 Hz,   Gyroscope: 5 Hz,   Delay: ~19.0 ms
+    DLPF_CFG_RESERVED = 7
+} dlpfCfg_t;
+
+
 extern float Ax, Ay, Az;
 extern float Gx, Gy, Gz;
 
@@ -113,6 +125,7 @@ void mpu6050powerOn(void);
 void mpu6050Sampling(void);
 void mpu6050GyroScale(gyroScale_t scale);
 void mpu6050AccelScale(accelScale_t scale);
+void mpu6050ConfigFilter(uint8_t ext_sync, dlpfCfg_t dlpf_cfg);
 
 void mpu6050GyroRead(void);
 void mpu6050AccelRead(void);

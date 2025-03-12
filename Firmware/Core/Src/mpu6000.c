@@ -91,6 +91,24 @@ void mpu6050AccelScale(accelScale_t scale){
 			);
 }
 
+void mpu6050ConfigFilter(uint8_t ext_sync, dlpfCfg_t dlpf_cfg) {
+    // The CONFIG register (address 0x1A) combines EXT_SYNC_SET (bits 5–3) and DLPF_CFG (bits 2–0).
+    // ext_sync: external sync setting (0 if not used).
+    // dlpf_cfg: desired digital low pass filter configuration.
+    uint8_t config = (ext_sync << 3) | (uint8_t)dlpf_cfg;
+
+    HAL_I2C_Mem_Write(
+        &hi2c1,
+        mpu6050addr,
+        0x1A,       // CONFIG register address
+        1,
+        &config,
+        1,
+        100
+    );
+}
+
+
 void mpu6050Config(void){
 	// is valid Condition true 0x68
 	mpu6050Init();
@@ -101,9 +119,12 @@ void mpu6050Config(void){
 	// sampling data ratio
 		mpu6050Sampling();
 	// gyro scale   (RAW)
-		mpu6050GyroScale(degS2000);
+		mpu6050GyroScale(degS500);
 	// accel scale  (RAW)
-		mpu6050AccelScale(g16);
+		mpu6050AccelScale(g4);
+	// using low pass filter
+		mpu6050ConfigFilter(0, DLPF_CFG_10HZ);
+
 	}
 }
 
@@ -183,15 +204,15 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
         int16_t rawGyroZ = (int16_t)((mpu6050Data[12] << 8) | mpu6050Data[13]);
 
 
-        Ax = rawAccelX / 2048.0f;
-        Ay = rawAccelY / 2048.0f;
-        Az = rawAccelZ / 2048.0f;
+        Ax = rawAccelX / 8192.0f;
+        Ay = rawAccelY / 8192.0f;
+        Az = rawAccelZ / 8192.0f;
 
         temperature = (rawTemp / 340.0f) + 36.53f; // Example conversion formula
 
-        Gx = rawGyroX / 16.4f;
-        Gy = rawGyroY / 16.4f;
-        Gz = rawGyroZ / 16.4f;
+        Gx = rawGyroX / 65.5f;
+        Gy = rawGyroY / 65.5;
+        Gz = rawGyroZ / 65.5f;
 
         // Process or store these values as needed
         // For example, update global variables or send them to another module

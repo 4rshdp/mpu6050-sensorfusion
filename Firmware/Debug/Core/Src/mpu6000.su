@@ -3,8 +3,9 @@
 ../Core/Src/mpu6000.c:55:6:mpu6050Sampling	24	static
 ../Core/Src/mpu6000.c:68:6:mpu6050GyroScale	32	static
 ../Core/Src/mpu6000.c:81:6:mpu6050AccelScale	32	static
-../Core/Src/mpu6000.c:94:6:mpu6050Config	8	static
-../Core/Src/mpu6000.c:113:6:mpu6050GyroRead	32	static
-../Core/Src/mpu6000.c:134:6:mpu6050AccelRead	32	static
-../Core/Src/mpu6000.c:156:6:mpu6050Read_DMA	24	static
-../Core/Src/mpu6000.c:169:6:HAL_I2C_MemRxCpltCallback	32	static
+../Core/Src/mpu6000.c:94:6:mpu6050ConfigFilter	40	static
+../Core/Src/mpu6000.c:112:6:mpu6050Config	8	static
+../Core/Src/mpu6000.c:134:6:mpu6050GyroRead	32	static
+../Core/Src/mpu6000.c:155:6:mpu6050AccelRead	32	static
+../Core/Src/mpu6000.c:177:6:mpu6050Read_DMA	24	static
+../Core/Src/mpu6000.c:190:6:HAL_I2C_MemRxCpltCallback	32	static
