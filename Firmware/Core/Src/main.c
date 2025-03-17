@@ -42,6 +42,8 @@
 
 #define RAD_TO_DEG 		57.2957795131f
 #define G_MPS2 9.8100000000f
+
+#define COMP_FILT_ALPHA 0.0500000000f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -118,11 +120,10 @@ int main(void)
 
   uint32_t timerUSB = 0;
 
-  float phiHat_deg = 0.0f;
-  float thetaHat_deg = 0.0f;
 
-  float phiHat_rad = 0.0f;
-  float thetaHat_rad = 0.0f;
+
+  float roll_estimate_rad = 0.0f;
+  float pitch_estimate_rad = 0.0f;
 
 
   while (1)
@@ -146,46 +147,48 @@ int main(void)
 		   */
 
 	      // Compute roll using atan2 for proper quadrant handling
-	      //float roll = atan2f(Ay, Az);
+	      float phiHat_acc_rad = atan2f(Ay, Az);
 	      // Compute pitch using both Ax and the combination of Ay and Az
-	      //float pitch = atan2f(-Ax, sqrt(Ay * Ay + Az * Az));
+	      float thetaHat_acc_rad = atan2f(-Ax, sqrt(Ay * Ay + Az * Az));
 
-	      //phiHat_deg = roll * RAD_TO_DEG;
-	      //thetaHat_deg = pitch * RAD_TO_DEG;
+	      float phiHat_acc_deg = phiHat_acc_rad * RAD_TO_DEG;
+	      float thetaHat_acc_deg = thetaHat_acc_rad * RAD_TO_DEG;
 
 
 		  // Assume Gx, Gy, Gz are measured gyro values in deg/s
 		  // Convert them to rad/s:
-		  float p = Gx * (M_PI / 180.0f);
-		  float q = Gy * (M_PI / 180.0f);
-		  float r = Gz * (M_PI / 180.0f);
+		  float p_rps = Gx * (M_PI / 180.0f);
+		  float q_rps = Gy * (M_PI / 180.0f);
+		  float r_rps = Gz * (M_PI / 180.0f);
 
 		  // dt is the sampling time in seconds (e.g., 50 ms -> 0.05 s)
 		  float dt = SAMPLE_TIME_MS_USB / 1000.0f;
 
-		  // Current estimates of roll and pitch (phiHat_rad and thetaHat_rad)
+		  // Current estimates of roll and pitch (roll_estimate_rad and pitch_estimate_rad)
 		  // Should be initialized to some starting values, possibly 0 or from an accelerometer.
 
 
 		  // Calculate the Euler angle derivatives from the gyro rates:
-		  float phiDot = p + tanf(thetaHat_rad) * (sinf(phiHat_rad) * q + cosf(phiHat_rad) * r);
-		  float thetaDot = cosf(phiHat_rad) * q - sinf(phiHat_rad) * r;
+		  float phiDot_rps = p_rps + tanf(pitch_estimate_rad) * (sinf(roll_estimate_rad) * q_rps + cosf(roll_estimate_rad) * r_rps);
+		  float thetaDot_rps = cosf(roll_estimate_rad) * q_rps - sinf(roll_estimate_rad) * r_rps;
 
-		  // Integrate the Euler angle derivatives to update the estimates:
-		  phiHat_rad = phiHat_rad + dt * phiDot;
-		  thetaHat_rad = thetaHat_rad + dt * thetaDot;
 
-		  // Optionally, convert to degrees for display:
-		  phiHat_deg = phiHat_rad * (180.0f / M_PI);
-		  thetaHat_deg = thetaHat_rad * (180.0f / M_PI);
+
+		  // Combine accelerometer estimates with integral readings of gyro
+		  roll_estimate_rad = COMP_FILT_ALPHA * phiHat_acc_rad + (1.0f - COMP_FILT_ALPHA) * (roll_estimate_rad + dt) * phiDot_rps;
+		  pitch_estimate_rad = COMP_FILT_ALPHA * thetaHat_acc_rad + (1.0f - COMP_FILT_ALPHA) * (pitch_estimate_rad + dt) * thetaDot_rps;
+
+		  // convert to degrees for display:
+		  float roll_estimate_deg  = roll_estimate_rad * RAD_TO_DEG;
+		  float pitch_estimate_deg = pitch_estimate_rad * RAD_TO_DEG;
 
 		  // Now, phiHat_deg and thetaHat_deg are your estimated roll and pitch angles.
 
 
 	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
 	               "%.3f, %.3f\r\n",
-				   phiHat_deg,
-				   thetaHat_deg);
+				   roll_estimate_deg,
+				   pitch_estimate_deg );
 
 
 	      CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
