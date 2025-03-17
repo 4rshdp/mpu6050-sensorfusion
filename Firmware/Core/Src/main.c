@@ -127,25 +127,38 @@ int main(void)
 	  /* Log data via USB */
 	  if ((HAL_GetTick() - timerUSB) >= SAMPLE_TIME_MS_USB) {
 
-		  phiHat_deg = atanf(Ay / Az) * RAD_TO_DEG;
-		  thetaHat_deg = asinf(Ax / G_MPS2) * RAD_TO_DEG;
+		  /*
+		   * Calculate roll and pitch from accelerometer readings:
+		   *
+		   * Roll (φ):
+		   *   - Uses atan2f(Ay, Az) to compute the angle of tilt around the X-axis.
+		   *   - This method correctly handles quadrant determination and cases where Az is near zero.
+		   *
+		   * Pitch (θ):
+		   *   - Uses atan2f(-Ax, sqrt(Ay * Ay + Az * Az)) to calculate the tilt around the Y-axis.
+		   *   - The denominator sqrt(Ay² + Az²) accounts for gravity's distribution on the Y and Z axes,
+		   *     providing a more balanced pitch value.
+		   *
+		   * Both angles are then converted from radians to degrees.
+		   */
 
+	      // Compute roll using atan2 for proper quadrant handling
+	      float roll = atan2f(Ay, Az);
+	      // Compute pitch using both Ax and the combination of Ay and Az
+	      float pitch = atan2f(-Ax, sqrt(Ay * Ay + Az * Az));
 
-		  /* Print via USB */
+	      phiHat_deg = roll * RAD_TO_DEG;
+	      thetaHat_deg = pitch * RAD_TO_DEG;
 
-		  snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
-				   "%.3f, %.3f\r\n",
-				   phiHat_deg,
-				   thetaHat_deg);
+	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
+	               "%.3f, %.3f\r\n",
+	               phiHat_deg,
+	               thetaHat_deg);
 
-
-		 // Transmit via USB CDC
-		 CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
-
-
-		  timerUSB = HAL_GetTick();
-
+	      CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
+	      timerUSB = HAL_GetTick();
 	  }
+
 
 
 
