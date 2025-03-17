@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_TIME_MS_USB  50
+#define SAMPLE_TIME_MS_USB  20
 
 #define RAD_TO_DEG 		57.2957795131f
 #define G_MPS2 9.8100000000f
@@ -121,6 +121,9 @@ int main(void)
   float phiHat_deg = 0.0f;
   float thetaHat_deg = 0.0f;
 
+  float phiHat_rad = 0.0f;
+  float thetaHat_rad = 0.0f;
+
 
   while (1)
   {
@@ -150,10 +153,19 @@ int main(void)
 	      phiHat_deg = roll * RAD_TO_DEG;
 	      thetaHat_deg = pitch * RAD_TO_DEG;
 
+
+	      float phiDot_rps = Gx + tanf(thetaHat_rad) * (sinf(phiHat_rad) * Gy + cosf(phiHat_rad) * Gz);
+	      float thetaDot_rps = 							cosf(phiHat_rad) * Gy - sinf(phiHat_rad) * Gz;
+
+	      phiHat_rad = phiHat_rad + (SAMPLE_TIME_MS_USB/1000.0f) * phiDot_rps;
+	      thetaHat_rad = thetaHat_rad + (SAMPLE_TIME_MS_USB/1000.0f) * thetaDot_rps;
+
+	      /*Integrate Euler rates to get estimate of roll and pitch angles*/
+
 	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
 	               "%.3f, %.3f\r\n",
-	               phiHat_deg,
-	               thetaHat_deg);
+				   phiHat_rad * RAD_TO_DEG,
+				   thetaHat_rad * RAD_TO_DEG);
 
 	      CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
 	      timerUSB = HAL_GetTick();
