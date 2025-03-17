@@ -146,26 +146,47 @@ int main(void)
 		   */
 
 	      // Compute roll using atan2 for proper quadrant handling
-	      float roll = atan2f(Ay, Az);
+	      //float roll = atan2f(Ay, Az);
 	      // Compute pitch using both Ax and the combination of Ay and Az
-	      float pitch = atan2f(-Ax, sqrt(Ay * Ay + Az * Az));
+	      //float pitch = atan2f(-Ax, sqrt(Ay * Ay + Az * Az));
 
-	      phiHat_deg = roll * RAD_TO_DEG;
-	      thetaHat_deg = pitch * RAD_TO_DEG;
+	      //phiHat_deg = roll * RAD_TO_DEG;
+	      //thetaHat_deg = pitch * RAD_TO_DEG;
 
 
-	      float phiDot_rps = Gx + tanf(thetaHat_rad) * (sinf(phiHat_rad) * Gy + cosf(phiHat_rad) * Gz);
-	      float thetaDot_rps = 							cosf(phiHat_rad) * Gy - sinf(phiHat_rad) * Gz;
+		  // Assume Gx, Gy, Gz are measured gyro values in deg/s
+		  // Convert them to rad/s:
+		  float p = Gx * (M_PI / 180.0f);
+		  float q = Gy * (M_PI / 180.0f);
+		  float r = Gz * (M_PI / 180.0f);
 
-	      phiHat_rad = phiHat_rad + (SAMPLE_TIME_MS_USB/1000.0f) * phiDot_rps;
-	      thetaHat_rad = thetaHat_rad + (SAMPLE_TIME_MS_USB/1000.0f) * thetaDot_rps;
+		  // dt is the sampling time in seconds (e.g., 50 ms -> 0.05 s)
+		  float dt = SAMPLE_TIME_MS_USB / 1000.0f;
 
-	      /*Integrate Euler rates to get estimate of roll and pitch angles*/
+		  // Current estimates of roll and pitch (phiHat_rad and thetaHat_rad)
+		  // Should be initialized to some starting values, possibly 0 or from an accelerometer.
+
+
+		  // Calculate the Euler angle derivatives from the gyro rates:
+		  float phiDot = p + tanf(thetaHat_rad) * (sinf(phiHat_rad) * q + cosf(phiHat_rad) * r);
+		  float thetaDot = cosf(phiHat_rad) * q - sinf(phiHat_rad) * r;
+
+		  // Integrate the Euler angle derivatives to update the estimates:
+		  phiHat_rad = phiHat_rad + dt * phiDot;
+		  thetaHat_rad = thetaHat_rad + dt * thetaDot;
+
+		  // Optionally, convert to degrees for display:
+		  phiHat_deg = phiHat_rad * (180.0f / M_PI);
+		  thetaHat_deg = thetaHat_rad * (180.0f / M_PI);
+
+		  // Now, phiHat_deg and thetaHat_deg are your estimated roll and pitch angles.
+
 
 	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
 	               "%.3f, %.3f\r\n",
-				   phiHat_rad * RAD_TO_DEG,
-				   thetaHat_rad * RAD_TO_DEG);
+				   phiHat_deg,
+				   thetaHat_deg);
+
 
 	      CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));
 	      timerUSB = HAL_GetTick();
