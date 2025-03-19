@@ -27,7 +27,8 @@
 #include <math.h>
 
 #include "mpu6000.h"
-#include "complementary_filter.h"
+//#include "complementary_filter.h"
+#include "EKF.h"
 
 
 /* USER CODE END Includes */
@@ -39,7 +40,18 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_TIME_MS_USB  20
+#define SAMPLE_TIME_MS_USB  50
+
+// Define global EKF instance
+EKF ekf;
+
+// Define your noise parameters (tune these values to your sensor characteristics)
+float P[2] = {0.01f, 0.01f};        // Initial covariance for roll and pitch
+float Q[2] = {0.001f, 0.001f};        // Process noise for roll and pitch
+float R[3] = {0.03f, 0.03f, 0.03f};   // Measurement noise for accelerometer (for three axes)
+
+#define RAD_TO_DEG (180.0f / M_PI)
+#define DEG_TO_RAD (M_PI / 180.0f)
 
 /* USER CODE END PD */
 
@@ -70,6 +82,11 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+
+
+
+
 
 /* USER CODE END 0 */
 
@@ -117,7 +134,7 @@ int main(void)
 
   uint32_t timerUSB = 0;
 
-
+  EKF_Init(&ekf, P, Q, R);
 
 
 
@@ -126,19 +143,44 @@ int main(void)
 	  /* Log data via USB */
 	  if ((HAL_GetTick() - timerUSB) >= SAMPLE_TIME_MS_USB) {
 
-		 // Calculate dt in seconds:
-		 float dt = SAMPLE_TIME_MS_USB / 1000.0f;
+		  // Calculate dt in seconds:
+		  float dt = SAMPLE_TIME_MS_USB / 1000.0f;
+		  // --- Read Sensor Data ---
+		  // Get gyro measurements (p, q, r) in rad/s.
+		  float p_rps = Gx * DEG_TO_RAD;  // convert deg/s to rad/s
+		  float q_rps = Gy * DEG_TO_RAD;
+		  float r_rps = Gz * DEG_TO_RAD;
 
-		 // Variables to hold the computed roll and pitch in degrees
-		 float roll_deg, pitch_deg;
 
-		 // Update the complementary filter and get new estimates:
-		 updateComplementaryFilter(Ax, Ay, Az, Gx, Gy, Gz, dt, &roll_deg, &pitch_deg);
+		  // Get accelerometer measurements (ax, ay, az) in m/s².
+		  float ax = Ax;
+		  float ay = Ay;
+		  float az = Az;
+
+		  // --- EKF Prediction ---
+		  // Propagate the state estimates using the gyro measurements.
+		  EKF_Predict(&ekf, p_rps, q_rps, r_rps, dt);
+
+		  // --- EKF Update ---
+		  // Update the state estimates using the accelerometer data.
+		  EKF_Update(&ekf, ax, ay, az);
+
+		  // Retrieve the updated state estimates (roll and pitch in radians)
+		  float roll_estimate_rad  = ekf.phi_r;
+		  float pitch_estimate_rad = ekf.theta_r;
+
+
+		  // Convert estimates to degrees for display or transmission
+		  float roll_estimate_deg  = roll_estimate_rad * RAD_TO_DEG;
+		  float pitch_estimate_deg = pitch_estimate_rad * RAD_TO_DEG;
+
+
+
 
 	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
 	               "%.3f, %.3f\r\n",
-				   roll_deg,
-				   pitch_deg);
+				   roll_estimate_deg,
+				   pitch_estimate_deg);
 
 
 	      CDC_Transmit_FS((uint8_t*)usb_tx_buffer, strlen(usb_tx_buffer));

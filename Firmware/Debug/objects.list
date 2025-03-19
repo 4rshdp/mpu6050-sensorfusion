@@ -1,4 +1,6 @@
+"./Core/Src/EKF.o"
 "./Core/Src/complementary_filter.o"
+"./Core/Src/kalman_filter.o"
 "./Core/Src/main.o"
 "./Core/Src/mpu6000.o"
 "./Core/Src/stm32f4xx_hal_msp.o"

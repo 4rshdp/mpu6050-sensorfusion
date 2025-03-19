@@ -6,17 +6,11 @@
  */
 
 /*
- *
- * This is modified to read via Dma
- * Original files can be found by the author :  https://github.com/grkmkctrk
- * https://github.com/grkmkctrk/stm32MPU6050
- *
- *
- */
+
 
 
 /**
- * @brief Concise overview of MPU6050 sensor ranges and usage
+ *@brief Concise overview of MPU6050 sensor ranges and usage
  *
  * Gyroscope full-scale range: ±250, ±500, ±1000, ±2000 °/s
  * Accelerometer full-scale range: ±2g, ±4g, ±8g, ±16g
