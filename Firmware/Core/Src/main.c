@@ -15,6 +15,9 @@
   *
   ******************************************************************************
   */
+
+#define EKF_N 2      // State vector dimension: [roll, pitch]
+#define EKF_M 3      // Measurement vector dimension: [ax, ay, az]
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -27,8 +30,7 @@
 #include <math.h>
 
 #include "mpu6000.h"
-//#include "complementary_filter.h"
-#include "EKF.h"
+#include "tinyekf.h"
 
 
 /* USER CODE END Includes */
@@ -42,16 +44,28 @@
 /* USER CODE BEGIN PD */
 #define SAMPLE_TIME_MS_USB  50
 
-// Define global EKF instance
-EKF ekf;
+#define EKF_N 2      // State vector: [roll, pitch]
+#define EKF_M 3      // Measurement vector: [ax, ay, az]
 
-// Define your noise parameters (tune these values to your sensor characteristics)
-float P[2] = {0.01f, 0.01f};        // Initial covariance for roll and pitch
-float Q[2] = {0.001f, 0.001f};        // Process noise for roll and pitch
-float R[3] = {0.03f, 0.03f, 0.03f};   // Measurement noise for accelerometer (for three axes)
+
+
+// Noise and covariance parameters
+_float_t Pdiag[EKF_N] = {0.01f, 0.01f};  // Initial covariance for roll and pitch
+_float_t Q[EKF_N * EKF_N] = {
+    0.001f, 0.0f,
+    0.0f,   0.001f
+};
+// Measurement noise covariance for the 3-axis accelerometer
+_float_t R[EKF_M * EKF_M] = {
+    0.03f, 0.0f,  0.0f,
+    0.0f,  0.03f, 0.0f,
+    0.0f,  0.0f,  0.03f
+};
 
 #define RAD_TO_DEG (180.0f / M_PI)
 #define DEG_TO_RAD (M_PI / 180.0f)
+
+ekf_t ekf;
 
 /* USER CODE END PD */
 
@@ -84,7 +98,53 @@ static void MX_I2C1_Init(void);
 /* USER CODE BEGIN 0 */
 
 
+/**
+ * @brief Sensor model function.
+ *
+ * This function computes the predicted accelerometer measurements (hx) due to gravity
+ * given the current roll (phi) and pitch (theta) estimates, and calculates the Jacobian matrix (H)
+ * of the measurement function.
+ *
+ * The model used is:
+ *    ax = -g * sin(theta)
+ *    ay =  g * sin(phi) * cos(theta)
+ *    az =  g * cos(phi) * cos(theta)
+ *
+ * The Jacobian matrix H is computed as:
+ *
+ *  [  0,             -g*cos(theta)             ]
+ *  [ g*cos(phi)*cos(theta),   -g*sin(phi)*sin(theta) ]
+ *  [ -g*sin(phi)*cos(theta),  -g*cos(phi)*sin(theta) ]
+ *
+ * @param ekf Pointer to the current EKF state.
+ * @param hx  Output predicted measurement vector (length EKF_M).
+ * @param H   Output Jacobian matrix (EKF_M x EKF_N).
+ */
+static void sensor_model(const ekf_t * ekf, _float_t hx[EKF_M], _float_t H[EKF_M * EKF_N])
+{
+    // Extract current state estimates (roll and pitch in radians)
+    _float_t phi   = ekf->x[0];  // roll
+    _float_t theta = ekf->x[1];  // pitch
+    const _float_t g = 9.81f;
 
+    // Predicted accelerometer measurements (gravity components)
+    hx[0] = -g * sin(theta);            // ax
+    hx[1] =  g * sin(phi) * cos(theta);   // ay
+    hx[2] =  g * cos(phi) * cos(theta);   // az
+
+    // Jacobian matrix H = d[hx]/d[x]
+    // For ax = -g*sin(theta)
+    H[0 * EKF_N + 0] = 0.0f;               // ∂ax/∂phi
+    H[0 * EKF_N + 1] = -g * cos(theta);     // ∂ax/∂theta
+
+    // For ay = g*sin(phi)*cos(theta)
+    H[1 * EKF_N + 0] = g * cos(phi) * cos(theta);   // ∂ay/∂phi
+    H[1 * EKF_N + 1] = -g * sin(phi) * sin(theta);    // ∂ay/∂theta
+
+    // For az = g*cos(phi)*cos(theta)
+    H[2 * EKF_N + 0] = -g * sin(phi) * cos(theta);    // ∂az/∂phi
+    H[2 * EKF_N + 1] = -g * cos(phi) * sin(theta);    // ∂az/∂theta
+}
 
 
 
@@ -127,6 +187,9 @@ int main(void)
   mpu6050Config();
   mpu6050Read_DMA();
 
+  // Initialize the EKF with the initial covariance diagonal
+  ekf_initialize(&ekf, Pdiag);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -134,7 +197,7 @@ int main(void)
 
   uint32_t timerUSB = 0;
 
-  EKF_Init(&ekf, P, Q, R);
+
 
 
 
@@ -145,32 +208,55 @@ int main(void)
 
 		  // Calculate dt in seconds:
 		  float dt = SAMPLE_TIME_MS_USB / 1000.0f;
+
+
+
 		  // --- Read Sensor Data ---
-		  // Get gyro measurements (p, q, r) in rad/s.
-		  float p_rps = Gx * DEG_TO_RAD;  // convert deg/s to rad/s
+		  // Convert gyro measurements (in deg/s) to rad/s.
+		  float p_rps = Gx * DEG_TO_RAD;
 		  float q_rps = Gy * DEG_TO_RAD;
 		  float r_rps = Gz * DEG_TO_RAD;
 
-
-		  // Get accelerometer measurements (ax, ay, az) in m/s².
-		  float ax = Ax;
-		  float ay = Ay;
-		  float az = Az;
-
 		  // --- EKF Prediction ---
-		  // Propagate the state estimates using the gyro measurements.
-		  EKF_Predict(&ekf, p_rps, q_rps, r_rps, dt);
+		  // Propagate state using a simple model (assuming constant rate over dt):
+		  //   roll_new  = roll + p_rps * dt;
+		  //   pitch_new = pitch + q_rps * dt;
+		  _float_t fx[EKF_N];
+		  fx[0] = ekf.x[0] + p_rps * dt;
+		  fx[1] = ekf.x[1] + q_rps * dt;
+
+		  // For this simple prediction, we assume the Jacobian is the identity matrix.
+		  _float_t F[EKF_N * EKF_N] = {
+			  1.0f, 0.0f,
+			  0.0f, 1.0f
+		  };
+
+		  // Run the prediction step.
+		  ekf_predict(&ekf, fx, F, Q);
 
 		  // --- EKF Update ---
-		  // Update the state estimates using the accelerometer data.
-		  EKF_Update(&ekf, ax, ay, az);
+		  // Build the measurement vector using 3-axis accelerometer data.
+		  _float_t z[EKF_M];
+		  z[0] = Ax;  // measured ax
+		  z[1] = Ay;  // measured ay
+		  z[2] = Az;  // measured az
 
-		  // Retrieve the updated state estimates (roll and pitch in radians)
-		  float roll_estimate_rad  = ekf.phi_r;
-		  float pitch_estimate_rad = ekf.theta_r;
+		  // Compute the predicted measurements and the Jacobian using the sensor model.
+		  _float_t hx[EKF_M];
+		  _float_t H[EKF_M * EKF_N];
+		  sensor_model(&ekf, hx, H);
 
+		  // Update the EKF with the new measurements.
+		  if (!ekf_update(&ekf, z, hx, H, R))
+		  {
+			  // Optionally handle update failure (e.g., log error or reset filter).
+		  }
 
-		  // Convert estimates to degrees for display or transmission
+		  // Retrieve updated state estimates (roll and pitch in radians).
+		  float roll_estimate_rad  = ekf.x[0];
+		  float pitch_estimate_rad = ekf.x[1];
+
+		  // Convert estimates to degrees.
 		  float roll_estimate_deg  = roll_estimate_rad * RAD_TO_DEG;
 		  float pitch_estimate_deg = pitch_estimate_rad * RAD_TO_DEG;
 
