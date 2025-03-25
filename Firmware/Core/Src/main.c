@@ -16,8 +16,7 @@
   ******************************************************************************
   */
 
-#define EKF_N 2      // State vector dimension: [roll, pitch]
-#define EKF_M 3      // Measurement vector dimension: [ax, ay, az]
+
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -30,7 +29,8 @@
 #include <math.h>
 
 #include "mpu6000.h"
-#include "tinyekf.h"
+#include "imu_fusion.h"
+
 
 
 /* USER CODE END Includes */
@@ -44,8 +44,7 @@
 /* USER CODE BEGIN PD */
 #define SAMPLE_TIME_MS_USB  50
 
-#define EKF_N 2      // State vector: [roll, pitch]
-#define EKF_M 3      // Measurement vector: [ax, ay, az]
+
 
 
 
@@ -187,8 +186,8 @@ int main(void)
   mpu6050Config();
   mpu6050Read_DMA();
 
-  // Initialize the EKF with the initial covariance diagonal
-  ekf_initialize(&ekf, Pdiag);
+  imu_fusion_init();
+
 
   /* USER CODE END 2 */
 
@@ -206,62 +205,13 @@ int main(void)
 	  /* Log data via USB */
 	  if ((HAL_GetTick() - timerUSB) >= SAMPLE_TIME_MS_USB) {
 
-		  // Calculate dt in seconds:
+
 		  float dt = SAMPLE_TIME_MS_USB / 1000.0f;
+		  float roll_estimate_deg, pitch_estimate_deg;
 
-
-
-		  // --- Read Sensor Data ---
-		  // Convert gyro measurements (in deg/s) to rad/s.
-		  float p_rps = Gx * DEG_TO_RAD;
-		  float q_rps = Gy * DEG_TO_RAD;
-		  float r_rps = Gz * DEG_TO_RAD;
-
-		  // --- EKF Prediction ---
-		  // Propagate state using a simple model (assuming constant rate over dt):
-		  //   roll_new  = roll + p_rps * dt;
-		  //   pitch_new = pitch + q_rps * dt;
-		  _float_t fx[EKF_N];
-		  fx[0] = ekf.x[0] + p_rps * dt;
-		  fx[1] = ekf.x[1] + q_rps * dt;
-
-		  // For this simple prediction, we assume the Jacobian is the identity matrix.
-		  _float_t F[EKF_N * EKF_N] = {
-			  1.0f, 0.0f,
-			  0.0f, 1.0f
-		  };
-
-		  // Run the prediction step.
-		  ekf_predict(&ekf, fx, F, Q);
-
-		  // --- EKF Update ---
-		  // Build the measurement vector using 3-axis accelerometer data.
-		  _float_t z[EKF_M];
-		  z[0] = Ax;  // measured ax
-		  z[1] = Ay;  // measured ay
-		  z[2] = Az;  // measured az
-
-		  // Compute the predicted measurements and the Jacobian using the sensor model.
-		  _float_t hx[EKF_M];
-		  _float_t H[EKF_M * EKF_N];
-		  sensor_model(&ekf, hx, H);
-
-		  // Update the EKF with the new measurements.
-		  if (!ekf_update(&ekf, z, hx, H, R))
-		  {
-			  // Optionally handle update failure (e.g., log error or reset filter).
-		  }
-
-		  // Retrieve updated state estimates (roll and pitch in radians).
-		  float roll_estimate_rad  = ekf.x[0];
-		  float pitch_estimate_rad = ekf.x[1];
-
-		  // Convert estimates to degrees.
-		  float roll_estimate_deg  = roll_estimate_rad * RAD_TO_DEG;
-		  float pitch_estimate_deg = pitch_estimate_rad * RAD_TO_DEG;
-
-
-
+		  // Update fusion algorithm with sensor data
+		  imu_fusion_update(Gx, Gy, Gz, Ax, Ay, Az, dt,
+		                    &roll_estimate_deg, &pitch_estimate_deg);
 
 	      snprintf(usb_tx_buffer, sizeof(usb_tx_buffer),
 	               "%.3f, %.3f\r\n",

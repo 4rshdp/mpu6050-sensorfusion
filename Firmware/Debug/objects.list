@@ -1,5 +1,6 @@
 "./Core/Src/EKF.o"
 "./Core/Src/complementary_filter.o"
+"./Core/Src/imu_fusion.o"
 "./Core/Src/kalman_filter.o"
 "./Core/Src/main.o"
 "./Core/Src/mpu6000.o"
