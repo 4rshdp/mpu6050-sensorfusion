@@ -14,10 +14,9 @@
 ../Core/Inc/tinyekf.h:247:17:ekf_predict	1
 ../Core/Inc/tinyekf.h:271:13:ekf_update_step3	1
 ../Core/Inc/tinyekf.h:289:13:ekf_update	2
-../Core/Src/main.c:122:13:sensor_model	1
-../Core/Src/main.c:156:5:main	2
-../Core/Src/main.c:241:6:SystemClock_Config	3
-../Core/Src/main.c:287:13:MX_I2C1_Init	2
-../Core/Src/main.c:319:13:MX_DMA_Init	1
-../Core/Src/main.c:337:13:MX_GPIO_Init	1
-../Core/Src/main.c:359:6:Error_Handler	1
+../Core/Src/main.c:89:5:main	2
+../Core/Src/main.c:174:6:SystemClock_Config	3
+../Core/Src/main.c:220:13:MX_I2C1_Init	2
+../Core/Src/main.c:252:13:MX_DMA_Init	1
+../Core/Src/main.c:270:13:MX_GPIO_Init	1
+../Core/Src/main.c:292:6:Error_Handler	1

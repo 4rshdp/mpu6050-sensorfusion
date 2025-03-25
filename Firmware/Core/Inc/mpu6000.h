@@ -6,10 +6,6 @@
  */
 
 /*
-
-
-
-/**
  *@brief Concise overview of MPU6050 sensor ranges and usage
  *
  * Gyroscope full-scale range: ±250, ±500, ±1000, ±2000 °/s
